@@ -114,7 +114,7 @@ E(1)= PARAM(3)*Rss
 A_t(1)= A_0 * exp((cc9/cc2)*(1-exp(-cc2*1)))
 
 for i = 2:1:10
-    E(i) = PARAM(3)*R
+    E(i) = PARAM(3)*Rss
     m_t(i) = m_t(1) + cc1*E(i-1) + cc2*(m_t(i-1) - m_t(1))
     F(i)= log(m_t(i)/m_t(1))/log(2) + cc3
     G_t(i) = cc4*G(i-1) + cc5*F(i)+ cc6*O(i-1)
@@ -141,11 +141,14 @@ end
 
 
 
-% I am not really sure whether this step makes any sense, the idea was to
-% calculate a new optimized consumption for each period according to
-% changing wages and interest-rates
+% This section can be basically skipped. I was too sentimental to delete it. The idea was to
+% calculate a new optimized consumption for each period according to the
+% current wages and interest-rates.
 %However, we can probably not continue using the formula for ideal
-%consumption any more which I did
+%consumption any more which I did and moreover, you only compute the
+%consumption for one generation for one period, sowe do not get any
+%sensible value for K. This is as if only one generation would exist at a
+%time.
 ECO=repmat(Economy(Kss,N,Rss,1,PARAM),10,1) % This is just some initial guess to establish the ECO matrix, be aware that the algorithm updates only lines 2 to 10
 ECO(1,:)=Economy(Kss,N,Rss,1,PARAM) % correcting period 1 
 K=zeros(10,1)
@@ -160,7 +163,7 @@ for i = 2:1:10
     N=sum(L);
     ECO(i,:)=Economy(K(i,1),N,R,A(i,1),PARAM)
     
-     x(i,1)=sum(ECO(i,1).*(1+ECO(i,2)-PARAM(5)).^-(i))/sum((1+ECO(i,2)-PARAM(5)).^-(i).*(PARAM(4)*(1+r(i,1)-PARAM(5))).^(i/PARAM(6)))
+     x(i,1)=sum(ECO(i,1).*(1+ECO(i,2)-PARAM(5)).^-(i))/sum((1+ECO(i,2)-PARAM(5)).^-(i).*(PARAM(4)*(1+ECO(i,2)-PARAM(5))).^(i/PARAM(6)))
    %optimal consumption for period i 
     AgentOptim(i,1)= x(i,1)*(PARAM(4)*(1+ECO(i,2)-PARAM(5))).^(i/PARAM(6))
     AgentOptim(i,2)= ECO(i-1,1)-AgentOptim(i-1,1)+AgentOptim(i-1,2)*(1+ECO(i,2)-PARAM(5))
@@ -174,8 +177,8 @@ for i = 2:1:10
 end
 
 
-% in this step zou do sort of the same as above but do not calculate a only one new
-% optimal Consumption for each period, but basicall an optimal consumption
+% In this step i do sort of the same as above but do not calculate only one new
+% optimal Consumption for each period, but basically an optimal consumption
 % for each generation according to the current wage and interest rate. 
 
 ECO=repmat(Economy(Kss,N,Rss,1,PARAM),10,1) % This is just some initial guess to establish the ECO matrix, be aware that the algorithm updates only lines 2 to 10
