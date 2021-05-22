@@ -1,66 +1,74 @@
 clear
 
 %PARAMETERS
-alpha=.33;
+alpha=.38;
 PARAM(1)=alpha;
 
-theta=0.4;
+theta=0.05;
 PARAM(2)=theta;
 
-eff=.5;
+eff=.27;
 PARAM(3)=eff;
 
-B=.98; % beta
+B=.96; % beta
 PARAM(4)=B;
 
-dep=0; %tau? 
+dep=0.045; 
 PARAM(5)=dep;
 
-sigma=2;
+sigma=.97;
 PARAM(6)=sigma;
 
-Er_1=.3;
-Er_2=1;
+Er_1=113;
+Er_2=700;
 Er_3=4;
-Er_4=0.01;
+Er_4=.01;
 
 PARAM(7)=Er_1;
 PARAM(8)=Er_2;
 PARAM(9)=Er_3;
 PARAM(10)=Er_4;
+
+PARAM(11)=100
+
+%THIS WORKS BETTER WITH THESE PARAMATERS
+PARAM(7)=.3;
+PARAM(8)=1;
+PARAM(10)=Er_4;
+
+
+
+
 %Except the last one which has to be below one, these numbers could not be
 %more random
 
-
-L=[ones(15,1);zeros(5,1)];
+%TotalPopulation =7.5e9     *7.5e9/20
+GenSize=7.5e9/20;
+GenSize=1;
+L=[ones(15,1)*GenSize;zeros(5,1)];
 N=sum(L);
 
+%L as divided in High and low skilled workers
+L= ones(20,2);
+L(16:20,:)=0;
+L(1,2)=0;
+L(2:15,2)=1.2;
+N=sum(L, 'all');
 
-%% 1/ First climate change has no impact and ressources are extracted at a constant cost
 
-%{
+%% INITIAL Steady State
 
-r=.1303;
-w=1;
 
-AO=AgentOptim(r,w,A,L,PARAM);
+guess=[100,100];
+%If it does not work just increase the guess
+A=2.5;
 
-figure(1)
-plot(1:20,AO(:,1),"b--",1:20,AO(:,2),"r-")
-%Looks good
-%}
+S=fsolve(@(guess) SolvEco(guess,L,A,PARAM),guess)
+S=abs(S)
 
-%% Steady State
-
-GUESS=[39,5];
-A=1;
-
-S=fsolve(@(guess) SolvEco(guess,L,A,PARAM),GUESS);
-S=abs(S);
 
 %Let's do some verif
-verif=SolvEco(S,L,A,PARAM);
-Economy(S(1),N,S(2),A,PARAM);
+%verif=SolvEco(S,L,A,PARAM);
 
 %AMAZING
 
@@ -72,221 +80,144 @@ SS.e=S(2);
 %SS.x=SS.e^(1/PARAM(10));
 SS.x=SS.e/Er_4
 
-ECO=Economy(SS.k,N,SS.e,A,PARAM);
+SS.ECO=Economy(SS.k,N,SS.e,A,PARAM);
 
+tau= 0.1 %individual tax rate
+SS.T=SS.ECO(1)*A*sum(L,'all')*tau % Steady state Tax income
 
 %We assume that agents are born with 0 asset
-Ini.asset=0
+Ini.asset=0;
 
-AO=AgentOptim(ECO(2)*ones(20,1),ECO(3),A,L,PARAM,Ini);
-SS.asset=AO(:,2)
+AO_l=AgentOptim(SS.ECO(2)*ones(20,1),SS.ECO(1),A,L(:,1),PARAM,Ini);
+AO_h=AgentOptim(SS.ECO(2)*ones(20,1),SS.ECO(1),A,L(:,2),PARAM,Ini);
+SS.asset_l=AO_l(:,2)
+SS.asset_h=AO_h(:,2)
+
+% Should SS.asset be individual for high and lowskilled workers? Probably
+% yes
+
+%sum(SS.asset)
+
 figure(2)
-plot(1:20,AO(:,1),"b--",1:20,AO(:,2),"r-")
+plot(1:20,AO_l(:,1),"b--",1:20,AO_l(:,2),"r-")
+figure(3)
+plot(1:20,AO_h(:,1),"b--",1:20,AO_h(:,2),"r-")
 
-Yss=F(SS.k,N,SS.e,A,PARAM)
-
+AN=A*N
+SS.y=F(SS.k,AN,SS.e,PARAM);
+SS.y=SS.y(1);
 %Verification that the income shares are right
-A*N*ECO(1)/Yss
-SS.k*ECO(2)/Yss
-SS.e*ECO(3)/Yss
+A*N*SS.ECO(1)/SS.y;
+SS.k*SS.ECO(2)/SS.y;
+SS.e*SS.ECO(3)/SS.y;
 %Niceeee
 
 
-%%
-%Now with vectors 
+%% Let's try stuff
 
 
-R=cumprod(1.01*ones(20,1))-1
-
-W=unidrnd(100,20,1)/100
-A=unidrnd(100,20,1)/100+.5
 
 
-clear AgentOptim
-AO=AgentOptim(R,W,A,L,PARAM,Ini);
-
-figure(1)
-plot(1:20,AO(:,1),"b--",1:20,AO(:,2),"r-")
-legend("Consumption","Assets")
 
 
-%% Now for all the agents
-
-%Wages and interest rates are random
-Wtime=unidrnd(100,100,1)/100;
-Rtime=unidrnd(100,100,1)/500;
-
-%Wtime=ones(100,1)*.3;
-Rtime=ones(100,1)/100;
-
-Atime=cumprod(1.001*ones(100,1));
-
-AllAgents=AGENTS(Rtime,Wtime,Atime,L,PARAM,SS)
-
-Cagents=AllAgents(:,:,1);
-Aagents=AllAgents(:,:,2);
-
-figure(2)
-for jj=1:4:81
-plot(1:100,AllAgents(:,jj,1),"b-",1:100,AllAgents(:,jj,2),"r:")
-hold on
-end
-
-figure(3)
-jj=2
-plot(1:100,AllAgents(:,jj,1),"b--",1:100,AllAgents(:,jj,2),"r-")
 
 
 %% 4/ And now it's linked to the whole economy
 
+%Let's model a shock
+%PARAM(9)=2;
+%Ressources became cheaper!
 
-%Imagine high skill worker: L changes, w changes, initial asset changes
-L(1)=0
+TIME=100
 
-Atime=cumprod(1.001*ones(100,1));
 
-GUESS=[ones(100,1)*39,ones(100,1)*5];
+GUESS=[ones(TIME,1)*SS.k,ones(TIME,1)*SS.e, ones(TIME,1)*SS.T];
 
 SolveTimeEco(GUESS,L,PARAM,SS);
 
-options.MaxFunEvals = 50000 
+options.MaxFunEvals = 30000 
 
-Solution=abs(fsolve(@(x) SolveTimeEco(x,L,PARAM,SS),GUESS, options))
+Solutiont=abs(fsolve(@(x) SolveTimeEco(x,L,PARAM,SS),GUESS, options))
 
 
-RessPress(Solution(:,2),PARAM,SS)
+RPt=RessPress(Solutiont(:,2),PARAM,SS);
 
 %Let's do some verif
-verif=SolveTimeEco(Solution,L,PARAM,SS)
+verift=SolveTimeEco(Solutiont,L,PARAM,SS);
 
-ECO=Economy(Solution(:,1),N,Solution(:,2),Atime,PARAM);
-AllAgents=AGENTS(ECO(:,2),ECO(:,3),Atime,L,PARAM,SS);
+At=change(Solutiont(:,2),PARAM, Solutiont(:,3));
+%At=2.5*ones(TIME,1);
 
-for jj=1:3:100
-plot(1:100,AllAgents(:,jj,1),"b-",1:100,AllAgents(:,jj,2),"r:")
+
+ECOt=Economy_extended(Solutiont(:,1),L,Solutiont(:,2),At,PARAM);
+AllAgents=AGENTS(ECOt(:,2),ECOt(:,1),At,L,PARAM,SS);
+
+
+%Graph for agent's consumption choice
+
+%low skilled
+figure(3)
+for jj=1:1:TIME
+plot(1:TIME,AllAgents(:,jj,1),"b-",1:TIME,AllAgents(:,jj,2),"r:")
+hold on
+end
+
+%High skilled workers
+figure(4)
+for jj=1:1:TIME
+plot(1:TIME,AllAgents(:,jj,3),"b-",1:TIME,AllAgents(:,jj,4),"r:")
 hold on
 end
 
 
-%%
 
 
-%{
+%ECOt+SS
+WAGE=[SS.ECO(1)*ones(20,1);ECOt(:,1)];
+IRATE=[SS.ECO(2)*ones(20,1);ECOt(:,2)];
+GAMMA=[SS.ECO(3)*ones(20,1);ECOt(:,3)];
+AA=[2.5*ones(20,1);At(:,1)];
 
-%% 3/ Climate Change for 10 periods
-E=zeros(10,1)
-m_t= zeros(10,1)
-G = zeros(10,1)
-O = zeros(10,1)
-F = zeros(10,1)
-A= zeros(10,1)
-A_t=zeros(10,1)
-
-% Calibration values
-cc1 = 0.9301
-cc2= 0.9846
-cc3= 1.42/2.980
-cc4= 0.9112
-cc5= 2.980 % I take the value for sc. 2
-cc6=  0.5     % missing in paper, this value is just a placeholder
-cc7= 0.998
-cc8= 0.0150 % damage from a 3 degree increase in Sc. 2
-cc9= 0.028
-A_0= 2.5 % not sur, check again
-
-%Initial Values
-m_t(1)= 590 % preindustrial carbon level
-G(1)=0 % initial surface temperature change
-O(1)=0 % initial ocean temperature change
-E(1)= PARAM(3)*Ess
-A_t(1)= A_0 * exp((cc9/cc2)*(1-exp(-cc2*1)))
-
-for i = 2:1:10
-    E(i) = PARAM(3)*Ess
-    m_t(i) = m_t(1) + cc1*E(i-1) + cc2*(m_t(i-1) - m_t(1))
-    F(i)= log(m_t(i)/m_t(1))/log(2) + cc3
-    G_t(i) = cc4*G(i-1) + cc5*F(i)+ cc6*O(i-1)
-    O(i)= cc7*O(i-1)+(1-cc7)*G(i-1)
-    A_t(i)= A_0 * exp((cc9/cc2)*(1-exp(-cc2*i)))
-    A(i)=(1+cc8*G_t(i).^2).^(-1/(1-PARAM(1)))*A_t(i)
-end
+%relevant values (marginal products)
+figure(5)
+plot(1:TIME+20,WAGE,"b-",1:TIME+20,IRATE,"r-",1:TIME+20,AA,"k--")
 
 
-%% Trying to include Climate chnage into the model
+%relevant values (marginal products)
+figure(5)
+plot(1:TIME+20,WAGE,"b-",1:TIME+20,IRATE,"r-",1:TIME+20,AA,"k--")
 
 
-% My main concern right now is this constantly changing A, which leads to
-% constantly changing wages, I do not know to handle this, since this far
-% we have only handled fixed wages, which were known in advanve or a one
-% time shock and convergence to a new equilibirium. But calculating a new
-% equilibrium for each time period does not make a lot of sense either.
+Nt=15
 
+Kt=Solutiont(:,1);
+KK=[SS.k*ones(20,1);Kt];
 
+Xt=RPt(:,1);
+XX=[SS.x*ones(20,1);Xt];
 
-%%Here I first try to incorporate it into agents optimization,
-%%while R is constant at the intitial steady state level -> shoudl we
-%%endogeneize Ressource use?
+Et=Solutiont(:,2);
+EE=[SS.e*ones(20,1);Et];
 
+Yt=F(Kt,Nt,Et,At,PARAM);
+YY=[SS.y*ones(20,1);Yt];
 
-
-% This section can be basically skipped. I was too sentimental to delete it. The idea was to
-% calculate a new optimized consumption for each period according to the
-% current wages and interest-rates.
-%However, we can probably not continue using the formula for ideal
-%consumption any more which I did and moreover, you only compute the
-%consumption for one generation for one period, sowe do not get any
-%sensible value for K. This is as if only one generation would exist at a
-%time.
-ECO=repmat(Economy(Kss,N,Ess,1,PARAM),10,1) % This is just some initial guess to establish the ECO matrix, be aware that the algorithm updates only lines 2 to 10
-ECO(1,:)=Economy(Kss,N,Ess,1,PARAM) % correcting period 1 
-K=zeros(10,1)
-K(1,1)=Kss
-AgentOptim=zeros(10,2)
-x=zeros(10,1)
-AO= zeros(10,1)
-for i = 2:1:10
-    K(i)=abs(K(i-1,1)); % we use last periods K to compute ECO later on, at the end of the step we will replcae k(i) with the actual k(i) of this period, computed as the sum of ai
-    R=abs(Ess);
-        
-    N=sum(L);
-    ECO(i,:)=Economy(K(i,1),N,R,A(i,1),PARAM)
-    
-     x(i,1)=sum(ECO(i,1).*(1+ECO(i,2)-PARAM(5)).^-(i))/sum((1+ECO(i,2)-PARAM(5)).^-(i).*(PARAM(4)*(1+ECO(i,2)-PARAM(5))).^(i/PARAM(6)))
-   %optimal consumption for period i 
-    AgentOptim(i,1)= x(i,1)*(PARAM(4)*(1+ECO(i,2)-PARAM(5))).^(i/PARAM(6))
-    AgentOptim(i,2)= ECO(i-1,1)-AgentOptim(i-1,1)+AgentOptim(i-1,2)*(1+ECO(i,2)-PARAM(5))
-
-    %AO(i,1)=AgentOptim2(ECO(i,2),ECO(i,1),A(i),L,PARAM) 
-    % the issue with agent optim here, because agent optim takes a value for 
-    % for wage and r and then calculates c and a for all periods, we need
-    % to update our wage and r in each period, with AO we get an entire 
-    
-    K(i)=sum(AgentOptim(:,2))
-end
-
-
-% In this step i do sort of the same as above but do not calculate only one new
-% optimal Consumption for each period, but basically an optimal consumption
-% for each generation according to the current wage and interest rate. 
-
-ECO=repmat(Economy(Kss,N,Ess,1,PARAM),10,1) % This is just some initial guess to establish the ECO matrix, be aware that the algorithm updates only lines 2 to 10
-ECO(1,:)=Economy(Kss,N,Ess,1,PARAM) % correcting period 1 
-K=zeros(10,1)
-K(1,1)=Kss
-
-for i = 2:1:10
-    K(i)=abs(K(i-1,1)); % we use last periods K to compute ECO later on, at the end of the step we will replcae k(i) with the actual k(i) of this period, computed as the sum of ai
-    R=abs(Ess);
-        
-    N=sum(L);
-    ECO(i,:)=Economy(K(i,1),N,R,A(i,1),PARAM)
-    AO = AgentOptim(ECO(i,2),ECO(i,1),A(i,1),L,PARAM) 
-       
-    K(i)=sum(AO(:,2))
-end
+%relevant values (K,E,X,Y)
+figure(5)
+plot(1:TIME+20,XX,"g--",1:TIME+20,KK,"r-",1:TIME+20,EE,"g-",1:TIME+20,YY,"k-")
 
 
 
 
 
-%}
+
+
+
+Ct=nansum(AllAgents(:,:,1),2)
+
+
+R=0.0098*ones(50,1)
+
+change(R,PARAM)
+
+
